@@ -8,7 +8,6 @@ Resources:
       DefinitionUri: petstore-swagger.json
     
 Outputs:
-
     PetStoreAPI:
       Description: "Root API endpoint URL for Prod stage"
       Value: !Sub "https://${PetStoreAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
