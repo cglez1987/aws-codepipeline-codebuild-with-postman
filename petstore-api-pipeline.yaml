@@ -10,12 +10,12 @@ Parameters:
     MaxLength: 100
   GitHubUser:
     Type: String
-  GitHubBranch:
-    Type: String
-  GitHubToken:
-    Type: String
-    Description: repository token.
-    NoEcho: true
+  # GitHubBranch:
+  #   Type: String
+  # GitHubToken:
+  #   Type: String
+  #   Description: repository token.
+  #   NoEcho: true
   BucketRoot:
     Type: String
     Description: bucket containing project artifacts e.g. postman config files, etc.
@@ -132,8 +132,8 @@ Resources:
             - "s3:GetObjectVersion"
             - "s3:ListBucket"
             Resource:
-            - Fn::Sub: arn:aws:s3:::${AWS::StackName}-codepipeline-artifact-bucket-${AWS::AccountId}/*
-            - Fn::Sub: arn:aws:s3:::${AWS::StackName}-codepipeline-artifact-bucket-${AWS::AccountId}
+            - Fn::Sub: arn:aws:s3:::codepipeline-${AWS::AccountId}/*
+            - Fn::Sub: arn:aws:s3:::codepipeline-${AWS::AccountId}
             - Fn::Sub: arn:aws:s3:::${BucketRoot}/*
             - Fn::Sub: arn:aws:s3:::${BucketRoot}
           -
@@ -163,11 +163,10 @@ Resources:
   CodePipelineArtifactBucket:
     DeletionPolicy: Delete
     Type: 'AWS::S3::Bucket'
-    Description: S3 bucket for pipeline artifacts
     Properties:
       AccessControl: Private
       BucketName:
-        Fn::Sub: ${AWS::StackName}-codepipeline-artifact-bucket-${AWS::AccountId}
+        Fn::Sub: codepipeline-${AWS::AccountId}
       VersioningConfiguration:
         Status: Enabled
       Tags:
@@ -184,23 +183,24 @@ Resources:
       ServiceRole:
         Fn::GetAtt: [ CodeBuildServiceRole, Arn ]
       Artifacts:
-        Type: S3
-        Location:
-          Ref: CodePipelineArtifactBucket
-        Name:
-          Fn::Sub: ${AWS::StackName}-petstore-api-stack-codebuild-project
+        # Type: S3
+        # Location:
+        #   Ref: CodePipelineArtifactBucket
+        # Name:
+        #   Fn::Sub: ${AWS::StackName}-petstore-api-stack-codebuild-project
+        Type: CODEPIPELINE
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/nodejs:8.11.0
       Source:
-        Location: !Join
-        - ''
-        - - 'https://github.com/'
-          - !Ref GitHubUser
-          - '/'
-          - !Ref GitHubRepositoryName
-        Type:  GITHUB
+        # Location: !Join
+        # - ''
+        # - - 'https://github.com/'
+        #   - !Ref GitHubUser
+        #   - '/'
+        #   - !Ref GitHubRepositoryName
+        Type: CODEPIPELINE
         BuildSpec: 01api/petstore-api-buildspec.yml
       TimeoutInMinutes: 10
       Tags:
@@ -218,11 +218,12 @@ Resources:
       ServiceRole:
         Fn::GetAtt: [ CodeBuildServiceRole, Arn ]
       Artifacts:
-        Type: S3
-        Location:
-          Ref: CodePipelineArtifactBucket
-        Name:
-          Fn::Sub: ${AWS::StackName}-newman-project
+        # Type: S3
+        # Location:
+        #   Ref: CodePipelineArtifactBucket
+        # Name:
+        #   Fn::Sub: ${AWS::StackName}-newman-project
+        Type: CODEPIPELINE
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
@@ -233,13 +234,7 @@ Resources:
             Value:
               Fn::Sub: ${BucketRoot}
       Source:
-        Location: !Join
-          - ''
-          - - 'https://github.com/'
-            - !Ref GitHubUser
-            - '/'
-            - !Ref GitHubRepositoryName
-        Type:  GITHUB
+        Type: CODEPIPELINE
         BuildSpec: 03codebuild/postman-newman-buildspec.yml
       TimeoutInMinutes: 10
       Tags:
@@ -247,11 +242,16 @@ Resources:
           Value:
             Fn::Sub: ${AWS::StackName}-newman-project
 
+  GitHubConnection:
+    Type: "AWS::CodeStarConnections::Connection"
+    Properties:
+      ConnectionName: GitHubConnection-cglez1987
+      ProviderType: GitHub
 
   PetStoreAPIPipeline:
     Type: "AWS::CodePipeline::Pipeline"
-    DependsOn:
-      - PetStoreAPISAMCodeBuildProject
+    # DependsOn:
+    #   - PetStoreAPISAMCodeBuildProject
     Properties:
       Name: petstore-api-pipeline
       RoleArn:
@@ -260,24 +260,41 @@ Resources:
         Type: S3
         Location: !Ref CodePipelineArtifactBucket
       Stages:
+      # - Name: Source
+      #   Actions:
+      #   - Name: CheckoutPetStoreAPISource
+      #     ActionTypeId:
+      #       Owner: ThirdParty
+      #       Category: Source
+      #       Version: '1'
+      #       Provider: GitHub
+      #     Configuration:
+      #       Owner: !Ref GitHubUser
+      #       PollForSourceChanges: false
+      #       Repo: !Ref GitHubRepositoryName
+      #       Branch: !Ref GitHubBranch
+      #       OAuthToken: !Ref GitHubToken
+      #     InputArtifacts: []
+      #     OutputArtifacts:
+      #     - Name: 'PetStoreAPI-SourceArtifact'
+      #     RunOrder: 1
       - Name: Source
         Actions:
-        - Name: CheckoutPetStoreAPISource
-          ActionTypeId:
-            Owner: ThirdParty
-            Category: Source
-            Version: 1
-            Provider: GitHub
-          Configuration:
-            Owner: !Ref GitHubUser
-            PollForSourceChanges: false
-            Repo: !Ref GitHubRepositoryName
-            Branch: !Ref GitHubBranch
-            OAuthToken: !Ref GitHubToken
-          InputArtifacts: []
-          OutputArtifacts:
-          - Name: 'PetStoreAPI-SourceArtifact'
-          RunOrder: 1
+            - Name: CheckoutPetStoreAPISource
+              ActionTypeId:
+                Category: Source  
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              InputArtifacts: []
+              OutputArtifacts:
+                - Name: 'PetStoreAPI-SourceArtifact'
+              Configuration:
+                ConnectionArn: !Ref GitHubConnection
+                FullRepositoryId: "cglez1987/aws-codepipeline-codebuild-with-postman"
+                BranchName: master
+                OutputArtifactFormat: zip
+              RunOrder: 1                       
 
       - Name: Build
         Actions:
@@ -285,7 +302,7 @@ Resources:
           ActionTypeId:
             Owner: AWS
             Category: Build
-            Version: 1
+            Version: '1'
             Provider: CodeBuild
           Configuration:
             ProjectName: !Ref PetStoreAPISAMCodeBuildProject
@@ -301,7 +318,7 @@ Resources:
           ActionTypeId:
             Owner: AWS
             Category: Deploy
-            Version: 1
+            Version: '1'
             Provider: CloudFormation
           Configuration:
             TemplatePath: !Join
@@ -324,7 +341,7 @@ Resources:
           ActionTypeId:
             Owner: AWS
             Category: Deploy
-            Version: 1
+            Version: '1'
             Provider: CloudFormation
           Configuration:
             ActionMode: CHANGE_SET_EXECUTE
@@ -341,7 +358,7 @@ Resources:
           ActionTypeId:
             Owner: AWS
             Category: Build
-            Version: 1
+            Version: '1'
             Provider: CodeBuild
           Configuration:
             ProjectName: !Ref PostmanNewmanCodeBuildProject
