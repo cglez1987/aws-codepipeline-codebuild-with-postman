@@ -3,13 +3,13 @@ Description: Code pipeline for automated api functional testing
 
 Parameters:
 
-  GitHubRepositoryName:
-    Type: String
-    Description: GitHub repository name.
-    MinLength: 1
-    MaxLength: 100
-  GitHubUser:
-    Type: String
+  # GitHubRepositoryName:
+  #   Type: String
+  #   Description: GitHub repository name.
+  #   MinLength: 1
+  #   MaxLength: 100
+  # GitHubUser:
+  #   Type: String
   # GitHubBranch:
   #   Type: String
   # GitHubToken:
@@ -51,12 +51,7 @@ Resources:
           -
             Effect: "Allow"
             Action:
-            - "s3:DeleteObject"
-            - "s3:GetObject"
-            - "s3:GetObjectVersion"
-            - "s3:ListBucket"
-            - "s3:PutObject"
-            - "s3:GetBucketPolicy"
+            - "s3:*"
             Resource: '*'
           -
             Effect: "Allow"
@@ -78,6 +73,7 @@ Resources:
             - "cloudformation:SetStackPolicy"
             - "cloudformation:ValidateTemplate"
             - "iam:PassRole"
+            - "codestar-connections:*"
             Resource: '*'
 
   CodeBuildServiceRole:
@@ -246,8 +242,8 @@ Resources:
     Type: "AWS::CodeStarConnections::Connection"
     Properties:
       ConnectionName: GitHubConnection-cglez1987
-      ProviderType: GitHub
-
+      ProviderType: GitHub 
+  
   PetStoreAPIPipeline:
     Type: "AWS::CodePipeline::Pipeline"
     # DependsOn:
